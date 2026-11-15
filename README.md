@@ -21,7 +21,7 @@ A small MERN application for managing products and stock. This is an educational
 4. Create `server/.env`:
    ```env
    PORT=5000
-   MONGO_URI=mongodb://127.0.0.1:27017/retail_inventory
+   MONGO_URI= //give mongodb URI
    ```
 5. Start both applications:
    ```bash
