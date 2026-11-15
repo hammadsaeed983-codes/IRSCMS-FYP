@@ -1,46 +1,42 @@
 * { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: #f3f5f9;
-  color: #202938;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-.container { max-width: 1180px; margin: 0 auto; padding: 38px 24px; }
+body { margin: 0; background: #f3f5f9; color: #202938; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.container { max-width: 1280px; margin: 0 auto; padding: 38px 24px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 28px; }
 .eyebrow { color: #5874a5; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
 h1 { margin: 8px 0; font-size: 32px; }
 .subheading, .muted { color: #788397; margin: 5px 0 0; }
-.summary { background: #fff; border: 1px solid #e5e9f0; border-radius: 12px; padding: 16px 22px; min-width: 150px; display: grid; gap: 4px; }
-.summary span, .summary small { color: #788397; }
-.summary strong { font-size: 28px; }
+.summary-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.summary { background: #fff; border: 1px solid #e5e9f0; border-radius: 12px; padding: 14px 18px; min-width: 135px; display: grid; gap: 4px; }
+.summary span { color: #788397; font-size: 12px; }
+.summary strong { font-size: 25px; }
 .panel { background: #fff; border: 1px solid #e5e9f0; border-radius: 14px; padding: 24px; margin-bottom: 22px; box-shadow: 0 4px 16px #26334d08; }
 h2 { margin: 0 0 18px; font-size: 19px; }
 .product-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 label { display: grid; gap: 7px; font-size: 13px; font-weight: 650; color: #526078; }
-input { width: 100%; border: 1px solid #dce2eb; border-radius: 8px; padding: 11px 12px; font: inherit; color: #202938; background: #fff; }
+input { width: 100%; border: 1px solid #dce2eb; border-radius: 8px; padding: 10px 12px; font: inherit; color: #202938; background: #fff; min-width: 0; }
 input:focus { outline: 2px solid #cbd8f2; border-color: #718fc8; }
 button { border: 0; border-radius: 8px; padding: 11px 16px; background: #315da8; color: white; font-weight: 700; cursor: pointer; }
 button:hover { filter: brightness(.96); }
+button:disabled { opacity: .65; cursor: wait; }
 .form-actions { display: flex; align-items: end; gap: 8px; }
 .secondary { background: #edf1f7; color: #42516a; }
 .danger { background: #fff0f0; color: #b33d3d; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 18px; }
 .section-heading h2 { margin-bottom: 4px; }
-.search { max-width: 260px; }
+.search { max-width: 280px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
 th { color: #8390a4; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; background: #f8f9fb; }
 th, td { padding: 14px 12px; border-bottom: 1px solid #edf0f4; font-size: 13px; }
 .quantity { color: #27734c; font-weight: 750; }
 .low { display: inline-block; color: #a85a16; background: #fff2df; padding: 4px 8px; border-radius: 20px; font-weight: 750; }
-.actions { display: flex; gap: 6px; }
+.actions, .stock-controls { display: flex; align-items: center; gap: 6px; }
+.stock-controls input { width: 66px; padding: 7px; }
 button.small { padding: 7px 9px; font-size: 11px; }
 .empty { text-align: center; color: #8792a4; padding: 32px; }
-.message { background: #e9f4ed; color: #286444; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
+.message { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
+.success { background: #e9f4ed; color: #286444; }
+.error { background: #fff0f0; color: #a52e2e; }
 footer { text-align: center; color: #9aa4b3; font-size: 12px; padding: 12px; }
-@media (max-width: 760px) {
-  .container { padding: 22px 14px; }
-  .topbar, .section-heading { align-items: stretch; flex-direction: column; }
-  .product-form { grid-template-columns: 1fr; }
-  .search { max-width: none; }
-}
+@media (max-width: 900px) { .topbar { align-items: stretch; flex-direction: column; } }
+@media (max-width: 760px) { .container { padding: 22px 14px; } .section-heading { align-items: stretch; flex-direction: column; } .product-form { grid-template-columns: 1fr; } .search { max-width: none; } }

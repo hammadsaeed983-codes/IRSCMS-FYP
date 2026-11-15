@@ -6,10 +6,16 @@ const emptyForm = {
   name: "",
   sku: "",
   category: "",
-  quantity: 0,
-  minStock: 5,
-  price: 0
+  quantity: "0",
+  minStock: "5",
+  price: "0"
 };
+
+async function readResponse(response) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || "The request could not be completed.");
+  return data;
+}
 
 export default function App() {
   const [products, setProducts] = useState([]);
@@ -17,11 +23,19 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [stockAmounts, setStockAmounts] = useState({});
+  const [loading, setLoading] = useState(false);
 
   async function loadProducts() {
-    const response = await fetch(`${API}?search=${search}`);
-    const data = await response.json();
-    setProducts(data);
+    try {
+      const response = await fetch(`${API}?search=${encodeURIComponent(search)}`);
+      const data = await readResponse(response);
+      setProducts(data);
+      setError("");
+    } catch (err) {
+      setError(err.message || "Could not load products. Check that the server is running.");
+    }
   }
 
   useEffect(() => {
@@ -32,47 +46,52 @@ export default function App() {
     () => products.filter((product) => product.quantity <= product.minStock).length,
     [products]
   );
+  const totalStock = useMemo(
+    () => products.reduce((sum, product) => sum + product.quantity, 0),
+    [products]
+  );
 
   function updateForm(event) {
-    setForm({ ...form, [event.target.name]: event.target.value });
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
   }
 
- async function saveProduct(event) {
-  event.preventDefault();
-
-  const url = editingId ? `${API}/${editingId}` : API;
-  const method = editingId ? "PUT" : "POST";
-
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(data.message || "Could not save product.");
-    }
-
-    setMessage(editingId ? "Product updated successfully." : "Product added successfully.");
+  function resetForm() {
     setForm(emptyForm);
     setEditingId(null);
-
-    await loadProducts();
-  } catch (error) {
-    setMessage(error.message || "Something went wrong.");
   }
 
+  async function saveProduct(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+    setError("");
+    const url = editingId ? `${API}/${editingId}` : API;
+    const method = editingId ? "PUT" : "POST";
+    const payload = {
+      ...form,
+      name: form.name.trim(),
+      sku: form.sku.trim().toUpperCase(),
+      category: form.category.trim(),
+      quantity: Number(form.quantity),
+      minStock: Number(form.minStock),
+      price: Number(form.price)
+    };
 
-    if (response.ok) {
-      setMessage(editingId ? "Product updated." : "Product added.");
-      setForm(emptyForm);
-      setEditingId(null);
-      loadProducts();
-    } else {
-      setMessage("Could not save product.");
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      await readResponse(response);
+      setMessage(editingId ? "Product updated successfully." : "Product added successfully.");
+      resetForm();
+      await loadProducts();
+    } catch (err) {
+      setError(err.message || "Could not save product.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -80,27 +99,50 @@ export default function App() {
     setForm({
       name: product.name,
       sku: product.sku,
-      category: product.category,
-      quantity: product.quantity,
-      minStock: product.minStock,
-      price: product.price
+      category: product.category || "",
+      quantity: String(product.quantity),
+      minStock: String(product.minStock),
+      price: String(product.price)
     });
     setEditingId(product._id);
+    setMessage("");
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteProduct(id) {
-    await fetch(`${API}/${id}`, { method: "DELETE" });
-    setMessage("Product deleted.");
-    loadProducts();
+  async function deleteProduct(id, name) {
+    const confirmed = window.confirm(`Delete "${name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${API}/${id}`, { method: "DELETE" });
+      await readResponse(response);
+      setMessage("Product deleted successfully.");
+      if (editingId === id) resetForm();
+      await loadProducts();
+    } catch (err) {
+      setError(err.message || "Could not delete product.");
+    }
   }
 
   async function changeStock(id, change) {
-    await fetch(`${API}/${id}/stock`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ change })
-    });
-    loadProducts();
+    try {
+      const response = await fetch(`${API}/${id}/stock`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ change })
+      });
+      await readResponse(response);
+      setMessage("Stock quantity updated.");
+      await loadProducts();
+    } catch (err) {
+      setError(err.message || "Could not update stock.");
+    }
+  }
+
+  function adjustmentAmount(id) {
+    const amount = Number(stockAmounts[id] ?? 1);
+    return Number.isInteger(amount) && amount > 0 ? amount : null;
   }
 
   return (
@@ -111,116 +153,91 @@ export default function App() {
           <h1>Inventory Management</h1>
           <p className="subheading">A simple view of your store's products and stock.</p>
         </div>
-        <div className="summary">
-          <span>Products</span>
-          <strong>{products.length}</strong>
-          <small>{lowStockCount} low-stock items</small>
+        <div className="summary-grid">
+          <div className="summary"><span>Products</span><strong>{products.length}</strong></div>
+          <div className="summary"><span>Total available stock</span><strong>{totalStock}</strong></div>
+          <div className="summary"><span>Low-stock items</span><strong>{lowStockCount}</strong></div>
         </div>
       </header>
 
-      {message && <div className="message">{message}</div>}
+      {message && <div className="message success" role="status">{message}</div>}
+      {error && <div className="message error" role="alert">{error}</div>}
 
       <section className="panel">
         <h2>{editingId ? "Edit product" : "Add a product"}</h2>
         <form className="product-form" onSubmit={saveProduct}>
-          <label>
-            Product name
-            <input name="name" value={form.name} onChange={updateForm} required />
+          <label>Product name
+            <input name="name" value={form.name} onChange={updateForm} minLength="2" maxLength="100" required />
           </label>
-          <label>
-            SKU / Barcode
-            <input name="sku" value={form.sku} onChange={updateForm} required />
+          <label>SKU / Barcode
+            <input name="sku" value={form.sku} onChange={updateForm} minLength="2" maxLength="40" required />
           </label>
-          <label>
-            Category
-            <input name="category" value={form.category} onChange={updateForm} />
+          <label>Category
+            <input name="category" value={form.category} onChange={updateForm} maxLength="60" />
           </label>
-          <label>
-            Quantity
-            <input name="quantity" type="number" value={form.quantity} onChange={updateForm} />
+          <label>Quantity
+            <input name="quantity" type="number" min="0" step="1" value={form.quantity} onChange={updateForm} required />
           </label>
-          <label>
-            Minimum stock
-            <input name="minStock" type="number" value={form.minStock} onChange={updateForm} />
+          <label>Minimum stock
+            <input name="minStock" type="number" min="0" step="1" value={form.minStock} onChange={updateForm} required />
           </label>
-          <label>
-            Unit price
-            <input name="price" type="number" value={form.price} onChange={updateForm} />
+          <label>Unit price
+            <input name="price" type="number" min="0" step="0.01" value={form.price} onChange={updateForm} required />
           </label>
           <div className="form-actions">
-            <button type="submit">{editingId ? "Save changes" : "Add product"}</button>
-            {editingId && (
-              <button type="button" className="secondary" onClick={() => {
-                setEditingId(null);
-                setForm(emptyForm);
-              }}>Cancel</button>
-            )}
+            <button type="submit" disabled={loading}>{loading ? "Saving..." : editingId ? "Save changes" : "Add product"}</button>
+            {editingId && <button type="button" className="secondary" onClick={resetForm}>Cancel</button>}
           </div>
         </form>
       </section>
 
       <section className="panel">
         <div className="section-heading">
-          <div>
-            <h2>Products</h2>
-            <p className="muted">Search and update stock quantities.</p>
-          </div>
-          <input
-            className="search"
-            placeholder="Search product name..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+          <div><h2>Products</h2><p className="muted">Search by product name or SKU and manage stock quantities.</p></div>
+          <input className="search" placeholder="Search name or SKU..." value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
-
         <div className="table-wrap">
           <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>SKU</th>
-                <th>Category</th>
-                <th>Quantity</th>
-                <th>Unit price</th>
-                <th>Stock actions</th>
-                <th>Manage</th>
-              </tr>
-            </thead>
+            <thead><tr>
+              <th>Product</th><th>SKU</th><th>Category</th><th>Quantity</th><th>Unit price</th><th>Stock adjustment</th><th>Manage</th>
+            </tr></thead>
             <tbody>
               {products.map((product) => (
                 <tr key={product._id}>
                   <td><strong>{product.name}</strong></td>
                   <td>{product.sku}</td>
                   <td>{product.category || "General"}</td>
+                  <td><span className={product.quantity <= product.minStock ? "low" : "quantity"}>{product.quantity}</span></td>
+                  <td>Rs. {Number(product.price).toLocaleString()}</td>
                   <td>
-                    <span className={product.quantity <= product.minStock ? "low" : "quantity"}>
-                      {product.quantity}
-                    </span>
-                  </td>
-                  <td>Rs. {product.price}</td>
-                  <td>
-                    <div className="actions">
-                      <button className="small secondary" onClick={() => changeStock(product._id, 1)}>+ In</button>
-                      <button className="small secondary" onClick={() => changeStock(product._id, -1)}>- Out</button>
+                    <div className="stock-controls">
+                      <input aria-label={`Stock adjustment amount for ${product.name}`} type="number" min="1" step="1"
+                        value={stockAmounts[product._id] ?? "1"}
+                        onChange={(event) => setStockAmounts((current) => ({ ...current, [product._id]: event.target.value }))} />
+                      <button className="small secondary" onClick={() => {
+                        const amount = adjustmentAmount(product._id);
+                        if (amount) changeStock(product._id, amount);
+                        else setError("Enter a positive whole-number stock adjustment.");
+                      }}>+ In</button>
+                      <button className="small secondary" onClick={() => {
+                        const amount = adjustmentAmount(product._id);
+                        if (amount) changeStock(product._id, -amount);
+                        else setError("Enter a positive whole-number stock adjustment.");
+                      }}>- Out</button>
                     </div>
                   </td>
-                  <td>
-                    <div className="actions">
-                      <button className="small secondary" onClick={() => editProduct(product)}>Edit</button>
-                      <button className="small danger" onClick={() => deleteProduct(product._id)}>Delete</button>
-                    </div>
-                  </td>
+                  <td><div className="actions">
+                    <button className="small secondary" onClick={() => editProduct(product)}>Edit</button>
+                    <button className="small danger" onClick={() => deleteProduct(product._id, product.name)}>Delete</button>
+                  </div></td>
                 </tr>
               ))}
-              {products.length === 0 && (
-                <tr><td colSpan="7" className="empty">No products found. Add your first product above.</td></tr>
-              )}
+              {products.length === 0 && <tr><td colSpan="7" className="empty">No products found. Add your first product above.</td></tr>}
             </tbody>
           </table>
         </div>
       </section>
-      <footer>Inventory Management Module · Version 1.0 baseline</footer>
+      <footer>Inventory Management Module · Maintenance update</footer>
     </main>
   );
 }
-
