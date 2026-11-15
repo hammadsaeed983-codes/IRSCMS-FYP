@@ -1,6 +1,6 @@
 import express from "express";
 import Product from "../models/Product.js";
-
+import mongoose from "mongoose";
 const router = express.Router();
 
 router.get("/", async (req, res) => {
@@ -26,14 +26,32 @@ router.post("/", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        message: "Invalid product ID"
+      });
+    }
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      {
+        new: true,
+        runValidators: true
+      }
     );
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Product not found"
+      });
+    }
+
     res.json(product);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(400).json({
+      message: error.message
+    });
   }
 });
 

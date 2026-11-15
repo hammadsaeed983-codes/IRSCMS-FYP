@@ -37,17 +37,34 @@ export default function App() {
     setForm({ ...form, [event.target.name]: event.target.value });
   }
 
-  async function saveProduct(event) {
-    event.preventDefault();
+ async function saveProduct(event) {
+  event.preventDefault();
 
-    const url = editingId ? `${API}/${editingId}` : API;
-    const method = editingId ? "PUT" : "POST";
+  const url = editingId ? `${API}/${editingId}` : API;
+  const method = editingId ? "PUT" : "POST";
 
+  try {
     const response = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form)
     });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Could not save product.");
+    }
+
+    setMessage(editingId ? "Product updated successfully." : "Product added successfully.");
+    setForm(emptyForm);
+    setEditingId(null);
+
+    await loadProducts();
+  } catch (error) {
+    setMessage(error.message || "Something went wrong.");
+  }
+
 
     if (response.ok) {
       setMessage(editingId ? "Product updated." : "Product added.");
@@ -206,3 +223,4 @@ export default function App() {
     </main>
   );
 }
+
